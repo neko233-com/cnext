@@ -35,6 +35,23 @@ func (c *Clang) Version() string {
 func (c *Clang) Compile(opts CompileOptions) error {
 	args := []string{}
 
+	lang := opts.Language
+	if lang == "" || lang == "auto" {
+		if len(opts.Sources) > 0 {
+			lang = detectLanguage(opts.Sources[0])
+		} else {
+			lang = "cpp"
+		}
+	}
+
+	if opts.CompileOnly {
+		args = append(args, "-c")
+	}
+
+	if opts.PIC {
+		args = append(args, "-fPIC")
+	}
+
 	if opts.Std != "" {
 		args = append(args, "-std="+opts.Std)
 	}
@@ -62,7 +79,8 @@ func (c *Clang) Compile(opts CompileOptions) error {
 	args = append(args, "-o", opts.Output)
 	args = append(args, opts.Sources...)
 
-	cmd := exec.Command(c.path, args...)
+	bin := CompilerBinary(c.path, lang)
+	cmd := exec.Command(bin, args...)
 	cmd.Stdout = nil
 
 	if err := runCommand(cmd); err != nil {
@@ -87,7 +105,12 @@ func (c *Clang) Link(opts LinkOptions) error {
 
 	args = append(args, opts.Flags...)
 
-	cmd := exec.Command(c.path, args...)
+	lang := opts.Language
+	if lang == "" {
+		lang = "cpp"
+	}
+	bin := CompilerBinary(c.path, lang)
+	cmd := exec.Command(bin, args...)
 	cmd.Stdout = nil
 
 	if err := runCommand(cmd); err != nil {

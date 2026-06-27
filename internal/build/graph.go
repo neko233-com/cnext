@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/neko233-com/cnext/internal/cmake"
+	"github.com/neko233-com/cnext/internal/compiler"
 	"github.com/neko233-com/cnext/internal/config"
 )
 
@@ -13,6 +15,7 @@ type NodeType string
 const (
 	NodeCompile NodeType = "compile"
 	NodeLink    NodeType = "link"
+	NodeCMake   NodeType = "cmake"
 )
 
 type BuildGraph struct {
@@ -30,10 +33,37 @@ type BuildNode struct {
 	Optimization string
 	IncludeDirs  []string
 	Flags        []string
+	CMakeConfig  *CMakeConfig
+	Language     string
+	PIC          bool
+}
+
+type CMakeConfig struct {
+	SourceDir string
+	Options   []string
 }
 
 func Generate(cfg *config.Config) (*BuildGraph, error) {
 	graph := &BuildGraph{}
+
+	for _, dep := range cfg.Build.CMakeDependencies {
+		cmakeConfig := &CMakeConfig{
+			SourceDir: ".",
+			Options:   dep.CMakeOptions,
+		}
+
+		var deps []string
+		if dep.Git != "" {
+			deps = append(deps, "cmake:"+dep.Name)
+		}
+
+		graph.Nodes = append(graph.Nodes, BuildNode{
+			ID:           "cmake:" + dep.Name,
+			Type:         NodeCMake,
+			Dependencies: deps,
+			CMakeConfig:  cmakeConfig,
+		})
+	}
 
 	for _, lib := range cfg.Build.Libraries {
 		sources, err := resolveSources(lib.Sources)
@@ -59,6 +89,7 @@ func Generate(cfg *config.Config) (*BuildGraph, error) {
 			STD:          cfg.Build.STD,
 			Optimization: cfg.Build.Optimization,
 			IncludeDirs:  lib.IncludeDirs,
+			PIC:          cfg.Build.PIC,
 		})
 	}
 
@@ -161,4 +192,99 @@ func resolveSources(patterns []string) ([]string, error) {
 		}
 	}
 	return sources, nil
+}
+
+func (g *BuildGraph) nodeMap() map[string]*BuildNode {
+	m := make(map[string]*BuildNode, len(g.Nodes))
+	for i := range g.Nodes {
+		m[g.Nodes[i].ID] = &g.Nodes[i]
+	}
+	return m
+}
+
+func detectLanguage(sources []string) string {
+	if len(sources) == 0 {
+		return "cpp"
+	}
+	ext := filepath.Ext(sources[0])
+	switch ext {
+	case ".c":
+		return "c"
+	case ".cpp", ".cc", ".cxx", ".C":
+		return "cpp"
+	case ".h":
+		return "c"
+	case ".hpp", ".hh":
+		return "cpp"
+	default:
+		return "cpp"
+	}
+}
+
+func (g *BuildGraph) Execute(projectDir string, comp compiler.Compiler) error {
+	sorted, err := g.TopologicalSort()
+	if err != nil {
+		return err
+	}
+
+	nm := g.nodeMap()
+
+	for _, id := range sorted {
+		node := nm[id]
+
+		switch node.Type {
+		case NodeCMake:
+			if node.CMakeConfig == nil {
+				return fmt.Errorf("cmake node %q missing CMakeConfig", id)
+			}
+			bridge := cmake.NewBridge(projectDir)
+			if err := bridge.Configure(node.CMakeConfig.SourceDir, node.CMakeConfig.Options); err != nil {
+				return fmt.Errorf("cmake configure for %q failed: %w", id, err)
+			}
+			if err := bridge.Build(0); err != nil {
+				return fmt.Errorf("cmake build for %q failed: %w", id, err)
+			}
+			if err := bridge.Install(); err != nil {
+				return fmt.Errorf("cmake install for %q failed: %w", id, err)
+			}
+
+		case NodeCompile:
+			lang := detectLanguage(node.Sources)
+			opts := compiler.CompileOptions{
+				Sources:      node.Sources,
+				Output:       node.Output,
+				Std:          node.STD,
+				Language:     lang,
+				IncludeDirs:  node.IncludeDirs,
+				Flags:        node.Flags,
+				Optimization: node.Optimization,
+				CompileOnly:  true,
+				PIC:          node.PIC,
+			}
+			fmt.Printf("  [compile] %s\n", node.ID)
+			if err := comp.Compile(opts); err != nil {
+				return fmt.Errorf("compilation of %s failed: %w", node.ID, err)
+			}
+
+		case NodeLink:
+			var objects []string
+			for _, depID := range node.Dependencies {
+				dep := nm[depID]
+				if dep != nil && dep.Type == NodeCompile {
+					objects = append(objects, dep.Output)
+				}
+			}
+			opts := compiler.LinkOptions{
+				Objects: objects,
+				Output:  node.Output,
+				Flags:   node.Flags,
+			}
+			fmt.Printf("  [link] %s\n", node.ID)
+			if err := comp.Link(opts); err != nil {
+				return fmt.Errorf("linking of %s failed: %w", node.ID, err)
+			}
+		}
+	}
+
+	return nil
 }

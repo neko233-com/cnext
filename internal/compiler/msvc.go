@@ -30,6 +30,10 @@ func (m *MSVC) Compile(opts CompileOptions) error {
 
 	args := []string{}
 
+	if opts.CompileOnly {
+		args = append(args, "/c")
+	}
+
 	if opts.Std != "" {
 		std := strings.Replace(opts.Std, "c++", "/std:c++", 1)
 		std = strings.Replace(std, "c1", "/std:c1", 1)
