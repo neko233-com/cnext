@@ -61,9 +61,8 @@ func (m *MSVC) Compile(opts CompileOptions) error {
 
 	cmd := exec.Command(m.path, args...)
 	cmd.Stdout = nil
-	cmd.Stderr = nil
 
-	if err := cmd.Run(); err != nil {
+	if err := runCommand(cmd); err != nil {
 		return fmt.Errorf("msvc compilation failed: %w", err)
 	}
 
@@ -91,9 +90,8 @@ func (m *MSVC) Link(opts LinkOptions) error {
 
 	cmd := exec.Command(m.path, args...)
 	cmd.Stdout = nil
-	cmd.Stderr = nil
 
-	if err := cmd.Run(); err != nil {
+	if err := runCommand(cmd); err != nil {
 		return fmt.Errorf("msvc linking failed: %w", err)
 	}
 

@@ -64,9 +64,8 @@ func (c *Clang) Compile(opts CompileOptions) error {
 
 	cmd := exec.Command(c.path, args...)
 	cmd.Stdout = nil
-	cmd.Stderr = nil
 
-	if err := cmd.Run(); err != nil {
+	if err := runCommand(cmd); err != nil {
 		return fmt.Errorf("clang compilation failed: %w", err)
 	}
 
@@ -90,9 +89,8 @@ func (c *Clang) Link(opts LinkOptions) error {
 
 	cmd := exec.Command(c.path, args...)
 	cmd.Stdout = nil
-	cmd.Stderr = nil
 
-	if err := cmd.Run(); err != nil {
+	if err := runCommand(cmd); err != nil {
 		return fmt.Errorf("clang linking failed: %w", err)
 	}
 

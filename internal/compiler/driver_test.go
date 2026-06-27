@@ -1,6 +1,8 @@
 package compiler
 
 import (
+	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/neko233-com/cnext/internal/config"
@@ -114,4 +116,15 @@ func TestCompilerInterface(t *testing.T) {
 	var _ Compiler = (*GCC)(nil)
 	var _ Compiler = (*Clang)(nil)
 	var _ Compiler = (*MSVC)(nil)
+}
+
+func TestRunCommandIncludesStderr(t *testing.T) {
+	cmd := exec.Command("go", "run", "nonexistent.go")
+	err := runCommand(cmd)
+	if err == nil {
+		t.Fatal("Expected error from runCommand")
+	}
+	if !strings.Contains(err.Error(), "compiler output:") {
+		t.Errorf("Expected error to contain 'compiler output:', got: %v", err)
+	}
 }

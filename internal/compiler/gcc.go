@@ -64,9 +64,8 @@ func (g *GCC) Compile(opts CompileOptions) error {
 
 	cmd := exec.Command(g.path, args...)
 	cmd.Stdout = nil
-	cmd.Stderr = nil
 
-	if err := cmd.Run(); err != nil {
+	if err := runCommand(cmd); err != nil {
 		return fmt.Errorf("gcc compilation failed: %w", err)
 	}
 
@@ -90,9 +89,8 @@ func (g *GCC) Link(opts LinkOptions) error {
 
 	cmd := exec.Command(g.path, args...)
 	cmd.Stdout = nil
-	cmd.Stderr = nil
 
-	if err := cmd.Run(); err != nil {
+	if err := runCommand(cmd); err != nil {
 		return fmt.Errorf("gcc linking failed: %w", err)
 	}
 

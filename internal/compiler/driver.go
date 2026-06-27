@@ -1,9 +1,11 @@
 package compiler
 
 import (
+	"bytes"
 	"fmt"
 	"os/exec"
 	"runtime"
+	"strings"
 
 	"github.com/neko233-com/cnext/internal/config"
 )
@@ -56,4 +58,21 @@ func AutoDetect() (Compiler, error) {
 
 func AutoDetectForTarget(target config.Target) (Compiler, error) {
 	return AutoDetect()
+}
+
+// runCommand runs the given command and returns an error that includes
+// the stderr output when the command fails. This ensures compiler/linker
+// error messages are visible to the user.
+func runCommand(cmd *exec.Cmd) error {
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		output := strings.TrimSpace(stderr.String())
+		if output != "" {
+			return fmt.Errorf("%w\n\ncompiler output:\n%s", err, output)
+		}
+		return err
+	}
+	return nil
 }
