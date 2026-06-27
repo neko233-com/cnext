@@ -2,7 +2,10 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
+	"github.com/neko233-com/cnext/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -21,7 +24,61 @@ Example:
   cnext init my-project`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("cnext init - not yet implemented")
+		name := "my-project"
+		if len(args) > 0 {
+			name = args[0]
+		}
+
+		configPath := "cnext.toml"
+		if _, err := os.Stat(configPath); err == nil {
+			return fmt.Errorf("cnext.toml already exists in the current directory")
+		}
+
+		dirs := []string{"src", "include", "tests"}
+		for _, dir := range dirs {
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				return fmt.Errorf("failed to create directory %s: %w", dir, err)
+			}
+		}
+
+		cfg := config.Default()
+		cfg.Package.Name = name
+		if err := config.Save(configPath, cfg); err != nil {
+			return fmt.Errorf("failed to create cnext.toml: %w", err)
+		}
+
+		mainCpp := filepath.Join("src", "main.cpp")
+		mainContent := `#include <iostream>
+
+int main() {
+    std::cout << "Hello, World!" << std::endl;
+    return 0;
+}
+`
+		if err := os.WriteFile(mainCpp, []byte(mainContent), 0644); err != nil {
+			return fmt.Errorf("failed to create main.cpp: %w", err)
+		}
+
+		gitignore := `.gitignore
+build/
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
+.cache/
+`
+		if err := os.WriteFile(".gitignore", []byte(gitignore), 0644); err != nil {
+			return fmt.Errorf("failed to create .gitignore: %w", err)
+		}
+
+		fmt.Printf("Created project '%s' with the following structure:\n", name)
+		fmt.Println("  cnext.toml")
+		fmt.Println("  src/main.cpp")
+		fmt.Println("  include/")
+		fmt.Println("  tests/")
+		fmt.Println("  .gitignore")
 		return nil
 	},
 }
