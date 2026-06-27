@@ -22,14 +22,31 @@ func findCnextBinary(t *testing.T) string {
 		bin = "cnext"
 	}
 
-	// Get the directory of this test file, then go up to project root
+	// Check multiple locations
+	candidates := []string{}
+
+	// 1. Current working directory
+	if wd, err := os.Getwd(); err == nil {
+		candidates = append(candidates,
+			filepath.Join(wd, bin),
+			filepath.Join(wd, bin+".exe"),
+		)
+	}
+
+	// 2. Project root (relative to test file)
 	_, filename, _, _ := runtime.Caller(0)
 	projectRoot := filepath.Dir(filepath.Dir(filepath.Dir(filename)))
-
-	candidates := []string{
+	candidates = append(candidates,
 		filepath.Join(projectRoot, bin),
 		filepath.Join(projectRoot, bin+".exe"),
-	}
+	)
+
+	// 3. Two levels up from test file (for CI)
+	twoUp := filepath.Dir(filepath.Dir(filename))
+	candidates = append(candidates,
+		filepath.Join(twoUp, bin),
+		filepath.Join(twoUp, bin+".exe"),
+	)
 
 	for _, c := range candidates {
 		if _, err := os.Stat(c); err == nil {

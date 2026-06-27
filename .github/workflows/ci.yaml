@@ -37,15 +37,10 @@ jobs:
           xcode-select --install || true
 
       - name: Build
-        run: go build -o cnext ./cmd/cnext
+        run: go build -o cnext.exe ./cmd/cnext
 
       - name: Unit Tests
         run: go test ./internal/... -v -count=1
 
-      - name: E2E Tests (Unix)
-        if: runner.os != 'Windows'
-        run: go test ./internal/e2e/ -v -count=1
-
-      - name: E2E Tests (Windows)
-        if: runner.os == 'Windows'
+      - name: E2E Tests
         run: go test ./internal/e2e/ -v -count=1
