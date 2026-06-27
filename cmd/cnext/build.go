@@ -10,6 +10,7 @@ var (
 	buildTarget string
 	buildDebug  bool
 	buildJobs   int
+	buildRelease bool
 )
 
 var buildCmd = &cobra.Command{
@@ -32,5 +33,6 @@ Example:
 func init() {
 	buildCmd.Flags().StringVarP(&buildTarget, "target", "t", "", "Build a specific target")
 	buildCmd.Flags().BoolVarP(&buildDebug, "debug", "d", false, "Build with debug symbols")
+	buildCmd.Flags().BoolVarP(&buildRelease, "release", "r", false, "Build in release mode")
 	buildCmd.Flags().IntVarP(&buildJobs, "jobs", "j", 0, "Number of parallel jobs (default: number of CPUs)")
 }

@@ -7,9 +7,12 @@ import (
 )
 
 var (
-	testTarget string
-	testFilter string
-	testVerbose bool
+	testTarget   string
+	testFilter   string
+	testVerbose  bool
+	testCoverage bool
+	testBenchmark bool
+	testWatch    bool
 )
 
 var testCmd = &cobra.Command{
@@ -34,4 +37,7 @@ func init() {
 	testCmd.Flags().StringVarP(&testTarget, "target", "t", "", "Run tests for a specific target")
 	testCmd.Flags().StringVarP(&testFilter, "filter", "f", "", "Filter tests by name pattern")
 	testCmd.Flags().BoolVarP(&testVerbose, "verbose", "v", false, "Verbose test output")
+	testCmd.Flags().BoolVarP(&testCoverage, "coverage", "c", false, "Generate coverage report")
+	testCmd.Flags().BoolVarP(&testBenchmark, "benchmark", "b", false, "Run benchmarks")
+	testCmd.Flags().BoolVarP(&testWatch, "watch", "w", false, "Watch for changes and re-run tests")
 }
