@@ -8,11 +8,62 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
+type DependencyValue struct {
+	Version  string   `toml:"version"`
+	Features []string `toml:"features"`
+}
+
+func (d *DependencyValue) UnmarshalTOML(v any) error {
+	switch val := v.(type) {
+	case string:
+		d.Version = val
+		d.Features = nil
+		return nil
+	case map[string]any:
+		if ver, ok := val["version"].(string); ok {
+			d.Version = ver
+		}
+		if feats, ok := val["features"].([]any); ok {
+			d.Features = make([]string, 0, len(feats))
+			for _, f := range feats {
+				if s, ok := f.(string); ok {
+					d.Features = append(d.Features, s)
+				}
+			}
+		}
+		return nil
+	default:
+		return fmt.Errorf("cannot unmarshal dependency value from %T", v)
+	}
+}
+
+func (d DependencyValue) MarshalTOML() ([]byte, error) {
+	if len(d.Features) == 0 {
+		return []byte(fmt.Sprintf("%q", d.Version)), nil
+	}
+	var buf bytes.Buffer
+	buf.WriteString("{ ")
+	buf.WriteString(fmt.Sprintf("version = %q, ", d.Version))
+	buf.WriteString("features = [")
+	for i, f := range d.Features {
+		if i > 0 {
+			buf.WriteString(", ")
+		}
+		buf.WriteString(fmt.Sprintf("%q", f))
+	}
+	buf.WriteString("] }")
+	return buf.Bytes(), nil
+}
+
+func (d DependencyValue) VersionString() string {
+	return d.Version
+}
+
 type Config struct {
 	Package        Package                      `toml:"package"`
 	Build          Build                        `toml:"build"`
-	Dependencies   map[string]string            `toml:"dependencies"`
-	DevDependencies map[string]string            `toml:"dev-dependencies"`
+	Dependencies   map[string]DependencyValue   `toml:"dependencies"`
+	DevDependencies map[string]DependencyValue   `toml:"dev-dependencies"`
 }
 
 type Package struct {
@@ -92,8 +143,8 @@ func Default() *Config {
 			CMakeDependencies: []CMakeDependency{},
 			Tests:             []TestTarget{},
 		},
-		Dependencies:   map[string]string{},
-		DevDependencies: map[string]string{},
+		Dependencies:   map[string]DependencyValue{},
+		DevDependencies: map[string]DependencyValue{},
 	}
 }
 

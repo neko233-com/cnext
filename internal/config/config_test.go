@@ -190,18 +190,18 @@ benchmark = "1.8.3"
 		t.Errorf("Test.Framework = %q, want %q", test.Framework, "cnext")
 	}
 
-	if cfg.Dependencies["fmt"] != "10.2.1" {
-		t.Errorf("Dependencies[fmt] = %q, want %q", cfg.Dependencies["fmt"], "10.2.1")
+	if cfg.Dependencies["fmt"].Version != "10.2.1" {
+		t.Errorf("Dependencies[fmt].Version = %q, want %q", cfg.Dependencies["fmt"].Version, "10.2.1")
 	}
-	if cfg.Dependencies["spdlog"] != "1.13.0" {
-		t.Errorf("Dependencies[spdlog] = %q, want %q", cfg.Dependencies["spdlog"], "1.13.0")
+	if cfg.Dependencies["spdlog"].Version != "1.13.0" {
+		t.Errorf("Dependencies[spdlog].Version = %q, want %q", cfg.Dependencies["spdlog"].Version, "1.13.0")
 	}
 
-	if cfg.DevDependencies["gtest"] != "1.14.0" {
-		t.Errorf("DevDependencies[gtest] = %q, want %q", cfg.DevDependencies["gtest"], "1.14.0")
+	if cfg.DevDependencies["gtest"].Version != "1.14.0" {
+		t.Errorf("DevDependencies[gtest].Version = %q, want %q", cfg.DevDependencies["gtest"].Version, "1.14.0")
 	}
-	if cfg.DevDependencies["benchmark"] != "1.8.3" {
-		t.Errorf("DevDependencies[benchmark] = %q, want %q", cfg.DevDependencies["benchmark"], "1.8.3")
+	if cfg.DevDependencies["benchmark"].Version != "1.8.3" {
+		t.Errorf("DevDependencies[benchmark].Version = %q, want %q", cfg.DevDependencies["benchmark"].Version, "1.8.3")
 	}
 }
 
@@ -221,8 +221,8 @@ func TestSave(t *testing.T) {
 	cfg.Package.Version = "2.0.0"
 	cfg.Build.Compiler = "clang"
 	cfg.Build.STD = "c++23"
-	cfg.Dependencies["fmt"] = "10.2.1"
-	cfg.DevDependencies["gtest"] = "1.14.0"
+	cfg.Dependencies["fmt"] = DependencyValue{Version: "10.2.1"}
+	cfg.DevDependencies["gtest"] = DependencyValue{Version: "1.14.0"}
 
 	if err := Save(configPath, cfg); err != nil {
 		t.Fatalf("Save() error = %v", err)
@@ -245,11 +245,11 @@ func TestSave(t *testing.T) {
 	if loaded.Build.STD != "c++23" {
 		t.Errorf("Loaded Build.STD = %q, want %q", loaded.Build.STD, "c++23")
 	}
-	if loaded.Dependencies["fmt"] != "10.2.1" {
-		t.Errorf("Loaded Dependencies[fmt] = %q, want %q", loaded.Dependencies["fmt"], "10.2.1")
+	if loaded.Dependencies["fmt"].Version != "10.2.1" {
+		t.Errorf("Loaded Dependencies[fmt].Version = %q, want %q", loaded.Dependencies["fmt"].Version, "10.2.1")
 	}
-	if loaded.DevDependencies["gtest"] != "1.14.0" {
-		t.Errorf("Loaded DevDependencies[gtest] = %q, want %q", loaded.DevDependencies["gtest"], "1.14.0")
+	if loaded.DevDependencies["gtest"].Version != "1.14.0" {
+		t.Errorf("Loaded DevDependencies[gtest].Version = %q, want %q", loaded.DevDependencies["gtest"].Version, "1.14.0")
 	}
 }
 
@@ -366,5 +366,107 @@ name = "minimal-project"
 	}
 	if cfg.Build.Compiler != "" {
 		t.Errorf("Build.Compiler should be empty for partial config, got %q", cfg.Build.Compiler)
+	}
+}
+
+func TestLoadInlineTableDependencies(t *testing.T) {
+	content := `
+[package]
+name = "inline-test"
+version = "1.0.0"
+edition = "2024"
+
+[build]
+compiler = "gcc"
+std = "c++20"
+optimization = "release"
+
+[dependencies]
+fmt = "10.2.1"
+spdlog = "1.13.0"
+boost = { version = "1.83.0", features = ["filesystem", "system"] }
+
+[dev-dependencies]
+gtest = "1.14.0"
+benchmark = { version = "1.8.3", features = ["tools"] }
+`
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "cnext.toml")
+	if err := os.WriteFile(configPath, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to write test config: %v", err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if cfg.Dependencies["fmt"].Version != "10.2.1" {
+		t.Errorf("Dependencies[fmt].Version = %q, want %q", cfg.Dependencies["fmt"].Version, "10.2.1")
+	}
+	if len(cfg.Dependencies["fmt"].Features) != 0 {
+		t.Errorf("Dependencies[fmt].Features should be empty, got %v", cfg.Dependencies["fmt"].Features)
+	}
+
+	if cfg.Dependencies["spdlog"].Version != "1.13.0" {
+		t.Errorf("Dependencies[spdlog].Version = %q, want %q", cfg.Dependencies["spdlog"].Version, "1.13.0")
+	}
+
+	boost := cfg.Dependencies["boost"]
+	if boost.Version != "1.83.0" {
+		t.Errorf("Dependencies[boost].Version = %q, want %q", boost.Version, "1.83.0")
+	}
+	if len(boost.Features) != 2 {
+		t.Fatalf("Dependencies[boost].Features len = %d, want 2", len(boost.Features))
+	}
+	if boost.Features[0] != "filesystem" || boost.Features[1] != "system" {
+		t.Errorf("Dependencies[boost].Features = %v, want [filesystem system]", boost.Features)
+	}
+
+	gtest := cfg.DevDependencies["gtest"]
+	if gtest.Version != "1.14.0" {
+		t.Errorf("DevDependencies[gtest].Version = %q, want %q", gtest.Version, "1.14.0")
+	}
+
+	bench := cfg.DevDependencies["benchmark"]
+	if bench.Version != "1.8.3" {
+		t.Errorf("DevDependencies[benchmark].Version = %q, want %q", bench.Version, "1.8.3")
+	}
+	if len(bench.Features) != 1 || bench.Features[0] != "tools" {
+		t.Errorf("DevDependencies[benchmark].Features = %v, want [tools]", bench.Features)
+	}
+}
+
+func TestDependencyValueMarshalRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "cnext.toml")
+
+	cfg := Default()
+	cfg.Package.Name = "roundtrip-test"
+	cfg.Dependencies["fmt"] = DependencyValue{Version: "10.2.1"}
+	cfg.Dependencies["boost"] = DependencyValue{Version: "1.83.0", Features: []string{"filesystem", "system"}}
+
+	if err := Save(configPath, cfg); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	loaded, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("Load() after Save() error = %v", err)
+	}
+
+	if loaded.Dependencies["fmt"].Version != "10.2.1" {
+		t.Errorf("RoundTrip Dependencies[fmt].Version = %q, want %q", loaded.Dependencies["fmt"].Version, "10.2.1")
+	}
+
+	boost := loaded.Dependencies["boost"]
+	if boost.Version != "1.83.0" {
+		t.Errorf("RoundTrip Dependencies[boost].Version = %q, want %q", boost.Version, "1.83.0")
+	}
+	if len(boost.Features) != 2 {
+		t.Fatalf("RoundTrip Dependencies[boost].Features len = %d, want 2", len(boost.Features))
+	}
+	if boost.Features[0] != "filesystem" || boost.Features[1] != "system" {
+		t.Errorf("RoundTrip Dependencies[boost].Features = %v, want [filesystem system]", boost.Features)
 	}
 }
