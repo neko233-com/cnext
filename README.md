@@ -2,21 +2,47 @@
 
 A next-generation build tool and package manager for C/C++ projects.
 
-## Features
-
-- **One-click project initialization** — scaffold a complete project in seconds
-- **Declarative builds** — define targets, dependencies, and options in `cnext.toml`
-- **Package manager** — add, remove, and update C/C++ dependencies
-- **Built-in test framework** — discover and run tests with `cnext test`
-- **CMake bridging** — integrate CMake-based dependencies seamlessly
-- **Cross-compilation** — target different OS and architectures from a single config
-- **Multi-compiler support** — auto-detect or explicitly choose gcc, clang, or MSVC
-- **Toolchain management** — install, switch, and manage compiler toolchains
-
 ## Installation
 
+### One-Click Install (Recommended)
+
+**macOS / Linux** (`install.sh`)
+
 ```bash
-# From source (requires Go 1.25+)
+curl -fsSL https://raw.githubusercontent.com/neko233-com/cnext/main/scripts/install.sh | bash
+```
+
+**With specific version**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/neko233-com/cnext/main/scripts/install.sh | bash -s -- v1.0.0
+```
+
+**Windows** (`install.ps1` — do not use `.sh` on Windows)
+
+PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/neko233-com/cnext/main/scripts/install.ps1 | iex
+```
+
+CMD:
+
+```cmd
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/neko233-com/cnext/main/scripts/install.ps1 | iex"
+```
+
+**With specific version (Windows)**
+
+```powershell
+irm https://raw.githubusercontent.com/neko233-com/cnext/main/scripts/install.ps1 -OutFile $env:TEMP\cnext-install.ps1
+& $env:TEMP\cnext-install.ps1 v1.0.0
+```
+
+### From Source
+
+```bash
+# Requires Go 1.25+
 go install github.com/neko233-com/cnext/cmd/cnext@latest
 
 # Or build from source
@@ -24,6 +50,10 @@ git clone https://github.com/neko233-com/cnext.git
 cd cnext
 go build -o cnext ./cmd/cnext
 ```
+
+### Pre-built Binaries
+
+Download from [GitHub Releases](https://github.com/neko233-com/cnext/releases)
 
 ## Quick Start
 
@@ -41,6 +71,17 @@ cnext run
 # Run tests
 cnext test
 ```
+
+## Features
+
+- **One-click project initialization** — scaffold a complete project in seconds
+- **Declarative builds** — define targets, dependencies, and options in `cnext.toml`
+- **Package manager** — add, remove, and update C/C++ dependencies
+- **Built-in test framework** — discover and run tests with `cnext test`
+- **CMake bridging** — integrate CMake-based dependencies seamlessly
+- **Cross-compilation** — target different OS and architectures from a single config
+- **Multi-compiler support** — auto-detect or explicitly choose gcc, clang, or MSVC
+- **Toolchain management** — install, switch, and manage compiler toolchains
 
 ## Configuration
 
@@ -96,6 +137,7 @@ gtest = "1.14.0"
 | `cnext test` | Run project tests |
 | `cnext add <pkg>` | Add a dependency |
 | `cnext remove <pkg>` | Remove a dependency |
+| `cnext install` | Install all dependencies |
 | `cnext update` | Update dependencies |
 | `cnext fmt` | Format source code |
 | `cnext lint` | Lint source code |
@@ -159,6 +201,23 @@ my-app/
 └── .gitignore
 ```
 
+## Cross-Platform Support
+
+| Platform | amd64 | arm64 |
+|----------|-------|-------|
+| Windows  | ✅    | N/A   |
+| Linux    | ✅    | ✅    |
+| macOS    | ✅    | ✅    |
+
 ## License
 
 MIT License — see [LICENSE](LICENSE) for details.
+
+## Contributing
+
+Contributions are welcome! Please open an issue or submit a PR.
+
+## Links
+
+- GitHub: [https://github.com/neko233-com/cnext](https://github.com/neko233-com/cnext)
+- Issues: [https://github.com/neko233-com/cnext/issues](https://github.com/neko233-com/cnext/issues)

@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      - name: Install compiler (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc g++ clang
+
+      - name: Install compiler (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install gcc || true
+          xcode-select --install || true
+
+      - name: Build
+        run: go build -o cnext ./cmd/cnext
+
+      - name: Unit Tests
+        run: go test ./internal/... -v -count=1
+
+      - name: E2E Tests (Unix)
+        if: runner.os != 'Windows'
+        run: go test ./internal/e2e/ -v -count=1
+
+      - name: E2E Tests (Windows)
+        if: runner.os == 'Windows'
+        run: go test ./internal/e2e/ -v -count=1

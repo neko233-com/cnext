@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -16,13 +17,30 @@ var cleanCmd = &cobra.Command{
 	Long: `Remove build artifacts and temporary files.
 
 By default, removes the build/ directory.
-Use --all to also remove downloaded dependencies.
+Use --all to also remove downloaded dependencies and cmake cache.
 
 Example:
   cnext clean
   cnext clean --all`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("cnext clean - not yet implemented")
+		dirs := []string{"build"}
+
+		if cleanAll {
+			dirs = append(dirs, ".cnext", "vendor")
+		}
+
+		for _, dir := range dirs {
+			if _, err := os.Stat(dir); os.IsNotExist(err) {
+				continue
+			}
+
+			fmt.Printf("Removing %s/\n", dir)
+			if err := os.RemoveAll(dir); err != nil {
+				return fmt.Errorf("failed to remove %s: %w", dir, err)
+			}
+		}
+
+		fmt.Println("Clean completed successfully")
 		return nil
 	},
 }

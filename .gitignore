@@ -1,18 +1,17 @@
 # Build artifacts
-cnext.exe
+/build/
+/dist/
+*.o
+*.obj
+*.a
+*.lib
 *.exe
-*.exe~
 *.dll
 *.so
 *.dylib
 
-# Test binary, built with `go test -c`
-*.test
-
-# Output of the go coverage tool
-*.out
-
-# Dependency directories
+# cnext
+.cnext/
 vendor/
 
 # IDE
@@ -25,3 +24,12 @@ vendor/
 # OS
 .DS_Store
 Thumbs.db
+
+# Cache
+.cache/
+
+# Binaries
+cnext
+cnext.exe
+cnext-linux
+cnext-darwin

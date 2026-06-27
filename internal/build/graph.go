@@ -2,7 +2,9 @@ package build
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/neko233-com/cnext/internal/cmake"
@@ -105,8 +107,15 @@ func Generate(cfg *config.Config) (*BuildGraph, error) {
 
 		compileID := "exe:" + exe.Name
 		var compileDeps []string
-		for _, lib := range exe.Libraries {
-			compileDeps = append(compileDeps, "lib:"+lib)
+		var includeDirs []string
+		for _, libName := range exe.Libraries {
+			compileDeps = append(compileDeps, "lib:"+libName)
+			// Collect include directories from library dependencies
+			for _, lib := range cfg.Build.Libraries {
+				if lib.Name == libName {
+					includeDirs = append(includeDirs, lib.IncludeDirs...)
+				}
+			}
 		}
 
 		graph.Nodes = append(graph.Nodes, BuildNode{
@@ -118,6 +127,7 @@ func Generate(cfg *config.Config) (*BuildGraph, error) {
 			Compiler:     cfg.Build.Compiler,
 			STD:          cfg.Build.STD,
 			Optimization: cfg.Build.Optimization,
+			IncludeDirs:  includeDirs,
 		})
 
 		linkDeps := []string{compileID}
@@ -128,7 +138,7 @@ func Generate(cfg *config.Config) (*BuildGraph, error) {
 		graph.Nodes = append(graph.Nodes, BuildNode{
 			ID:           "link:" + exe.Name,
 			Type:         NodeLink,
-			Output:       exe.Name,
+			Output:       exeName(exe.Name),
 			Dependencies: linkDeps,
 		})
 	}
@@ -181,7 +191,13 @@ func (g *BuildGraph) TopologicalSort() ([]string, error) {
 func resolveSources(patterns []string) ([]string, error) {
 	var sources []string
 	for _, pattern := range patterns {
-		if strings.ContainsAny(pattern, "*?[") {
+		if strings.Contains(pattern, "**") {
+			matches, err := globRecursive(pattern)
+			if err != nil {
+				return nil, err
+			}
+			sources = append(sources, matches...)
+		} else if strings.ContainsAny(pattern, "*?[") {
 			matches, err := filepath.Glob(pattern)
 			if err != nil {
 				return nil, err
@@ -192,6 +208,51 @@ func resolveSources(patterns []string) ([]string, error) {
 		}
 	}
 	return sources, nil
+}
+
+func globRecursive(pattern string) ([]string, error) {
+	parts := strings.Split(pattern, "**")
+	if len(parts) != 2 {
+		return filepath.Glob(pattern)
+	}
+
+	prefix := parts[0]
+	suffix := parts[1]
+
+	if prefix == "" {
+		prefix = "."
+	}
+
+	// Normalize prefix - remove trailing separator
+	prefix = strings.TrimRight(prefix, "/\\")
+
+	// Extract extension from suffix (e.g., "/.cpp" -> ".cpp")
+	ext := strings.TrimPrefix(suffix, "/")
+	ext = strings.TrimPrefix(ext, "*")
+
+	var matches []string
+	err := filepath.Walk(prefix, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
+
+		if ext == "" || strings.HasSuffix(path, ext) {
+			matches = append(matches, path)
+		}
+		return nil
+	})
+
+	return matches, err
+}
+
+func exeName(name string) string {
+	if runtime.GOOS == "windows" {
+		return name + ".exe"
+	}
+	return name
 }
 
 func (g *BuildGraph) nodeMap() map[string]*BuildNode {

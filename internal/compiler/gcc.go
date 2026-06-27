@@ -3,6 +3,7 @@ package compiler
 import (
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -33,8 +34,6 @@ func (g *GCC) Version() string {
 }
 
 func (g *GCC) Compile(opts CompileOptions) error {
-	args := []string{}
-
 	lang := opts.Language
 	if lang == "" || lang == "auto" {
 		if len(opts.Sources) > 0 {
@@ -43,6 +42,42 @@ func (g *GCC) Compile(opts CompileOptions) error {
 			lang = "cpp"
 		}
 	}
+
+	bin := CompilerBinary(g.path, lang)
+
+	// When compiling multiple source files with -c, compile each separately
+	if opts.CompileOnly && len(opts.Sources) > 1 {
+		for i, src := range opts.Sources {
+			objName := strings.TrimSuffix(opts.Output, filepath.Ext(opts.Output))
+			if i > 0 {
+				objName += fmt.Sprintf("_%d", i)
+			}
+			objName += filepath.Ext(opts.Output)
+
+			compileOpts := CompileOptions{
+				Sources:      []string{src},
+				Output:       objName,
+				Std:          opts.Std,
+				Language:     lang,
+				IncludeDirs:  opts.IncludeDirs,
+				Defines:      opts.Defines,
+				Flags:        opts.Flags,
+				Optimization: opts.Optimization,
+				CompileOnly:  true,
+				PIC:          opts.PIC,
+			}
+			if err := g.compileSingle(bin, compileOpts); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	return g.compileSingle(bin, opts)
+}
+
+func (g *GCC) compileSingle(bin string, opts CompileOptions) error {
+	args := []string{}
 
 	if opts.CompileOnly {
 		args = append(args, "-c")
@@ -79,7 +114,6 @@ func (g *GCC) Compile(opts CompileOptions) error {
 	args = append(args, "-o", opts.Output)
 	args = append(args, opts.Sources...)
 
-	bin := CompilerBinary(g.path, lang)
 	cmd := exec.Command(bin, args...)
 	cmd.Stdout = nil
 

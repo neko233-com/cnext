@@ -43,6 +43,12 @@ Example:
 
 		cfg := config.Default()
 		cfg.Package.Name = name
+		cfg.Build.Executables = []config.Executable{
+			{
+				Name:    name,
+				Sources: []string{"src/**/*.cpp"},
+			},
+		}
 		if err := config.Save(configPath, cfg); err != nil {
 			return fmt.Errorf("failed to create cnext.toml: %w", err)
 		}
