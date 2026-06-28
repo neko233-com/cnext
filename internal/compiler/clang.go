@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -65,12 +66,19 @@ func (c *Clang) Compile(opts CompileOptions) error {
 				Optimization: opts.Optimization,
 				CompileOnly:  true,
 				PIC:          opts.PIC,
+				DepFile:      strings.TrimSuffix(objName, filepath.Ext(objName)) + ".d",
 			}
 			if err := c.compileSingle(bin, compileOpts); err != nil {
 				return err
 			}
 		}
 		return nil
+	}
+
+	// Generate dep file for single source
+	if opts.CompileOnly && opts.DepFile == "" {
+		objBase := strings.TrimSuffix(opts.Output, filepath.Ext(opts.Output))
+		opts.DepFile = objBase + ".d"
 	}
 
 	return c.compileSingle(bin, opts)
@@ -100,6 +108,11 @@ func (c *Clang) compileSingle(bin string, opts CompileOptions) error {
 		args = append(args, "-Os")
 	case "speed":
 		args = append(args, "-O3")
+	}
+
+	// Header dependency tracking
+	if opts.CompileOnly && opts.DepFile != "" {
+		args = append(args, "-MMD", "-MF", opts.DepFile)
 	}
 
 	for _, dir := range opts.IncludeDirs {
@@ -134,7 +147,11 @@ func (c *Clang) Link(opts LinkOptions) error {
 	}
 
 	for _, lib := range opts.Libraries {
-		args = append(args, "-l"+lib)
+		if runtime.GOOS == "windows" {
+			args = append(args, lib)
+		} else {
+			args = append(args, "-l"+lib)
+		}
 	}
 
 	args = append(args, opts.Flags...)
@@ -149,6 +166,39 @@ func (c *Clang) Link(opts LinkOptions) error {
 
 	if err := runCommand(cmd); err != nil {
 		return fmt.Errorf("clang linking failed: %w", err)
+	}
+
+	return nil
+}
+
+func (c *Clang) Archive(objects []string, output string) error {
+	// Create static library using ar
+	args := []string{"rcs", output}
+	args = append(args, objects...)
+
+	arPath := "ar"
+	if runtime.GOOS == "windows" {
+		dir := filepath.Dir(c.path)
+		candidates := []string{
+			filepath.Join(dir, "llvm-ar.exe"),
+			filepath.Join(dir, "llvm-ar"),
+			filepath.Join(dir, "ar.exe"),
+			filepath.Join(dir, "ar"),
+			"ar",
+		}
+		for _, candidate := range candidates {
+			if _, err := exec.LookPath(candidate); err == nil {
+				arPath = candidate
+				break
+			}
+		}
+	}
+
+	cmd := exec.Command(arPath, args...)
+	cmd.Stdout = nil
+
+	if err := runCommand(cmd); err != nil {
+		return fmt.Errorf("clang archive failed: %w", err)
 	}
 
 	return nil

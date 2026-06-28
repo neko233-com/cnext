@@ -25,19 +25,20 @@ type BuildGraph struct {
 }
 
 type BuildNode struct {
-	ID           string
-	Type         NodeType
-	Sources      []string
-	Output       string
-	Dependencies []string
-	Compiler     string
-	STD          string
-	Optimization string
-	IncludeDirs  []string
-	Flags        []string
-	CMakeConfig  *CMakeConfig
-	Language     string
-	PIC          bool
+	ID            string
+	Type          NodeType
+	Sources       []string
+	Output        string
+	ArchiveOutput string // Output for archive step (libraries)
+	Dependencies  []string
+	Compiler      string
+	STD           string
+	Optimization  string
+	IncludeDirs   []string
+	Flags         []string
+	CMakeConfig   *CMakeConfig
+	Language      string
+	PIC           bool
 }
 
 type CMakeConfig struct {
@@ -77,16 +78,24 @@ func Generate(cfg *config.Config) (*BuildGraph, error) {
 			continue
 		}
 
-		output := lib.Name + ".a"
+		// Compile step produces .o files
+		objOutput := lib.Name + ".o"
+
+		// Archive step produces .a or .so
+		archiveOutput := lib.Name + ".a"
 		if lib.Type == "shared" {
-			output = lib.Name + ".so"
+			archiveOutput = lib.Name + ".so"
+		}
+		if runtime.GOOS == "windows" {
+			archiveOutput = lib.Name + ".lib"
 		}
 
 		graph.Nodes = append(graph.Nodes, BuildNode{
 			ID:           "lib:" + lib.Name,
 			Type:         NodeCompile,
 			Sources:      sources,
-			Output:       output,
+			Output:       objOutput,
+			ArchiveOutput: archiveOutput,
 			Compiler:     cfg.Build.Compiler,
 			STD:          cfg.Build.STD,
 			Optimization: cfg.Build.Optimization,
@@ -327,18 +336,41 @@ func (g *BuildGraph) Execute(projectDir string, comp compiler.Compiler) error {
 				return fmt.Errorf("compilation of %s failed: %w", node.ID, err)
 			}
 
-		case NodeLink:
-			var objects []string
-			for _, depID := range node.Dependencies {
-				dep := nm[depID]
-				if dep != nil && dep.Type == NodeCompile {
-					objects = append(objects, dep.Output)
+			// Archive library if this is a library node
+			if strings.HasPrefix(node.ID, "lib:") && node.ArchiveOutput != "" {
+				objects := collectObjects(*node, nm)
+				if len(objects) > 0 {
+					fmt.Printf("  [archive] %s -> %s\n", node.ID, node.ArchiveOutput)
+					if err := comp.Archive(objects, node.ArchiveOutput); err != nil {
+						return fmt.Errorf("archiving of %s failed: %w", node.ID, err)
+					}
 				}
 			}
+
+		case NodeLink:
+			var objects []string
+			var libDirs []string
+			var libraries []string
+
+			for _, depID := range node.Dependencies {
+				dep := nm[depID]
+				if dep != nil {
+					if dep.Type == NodeCompile {
+						objects = append(objects, dep.Output)
+					}
+					// Collect library archive outputs
+					if strings.HasPrefix(depID, "lib:") && dep.ArchiveOutput != "" {
+						objects = append(objects, dep.ArchiveOutput)
+					}
+				}
+			}
+
 			opts := compiler.LinkOptions{
-				Objects: objects,
-				Output:  node.Output,
-				Flags:   node.Flags,
+				Objects:   objects,
+				Output:    node.Output,
+				LibDirs:   libDirs,
+				Libraries: libraries,
+				Flags:     node.Flags,
 			}
 			fmt.Printf("  [link] %s\n", node.ID)
 			if err := comp.Link(opts); err != nil {
@@ -348,4 +380,24 @@ func (g *BuildGraph) Execute(projectDir string, comp compiler.Compiler) error {
 	}
 
 	return nil
+}
+
+// collectObjects collects all .o files from a node and its dependencies
+func collectObjects(node BuildNode, nm map[string]*BuildNode) []string {
+	var objects []string
+
+	// Only add .o files, not .a files
+	if node.Output != "" && strings.HasSuffix(node.Output, ".o") {
+		objects = append(objects, node.Output)
+	}
+
+	// Add outputs from compile dependencies
+	for _, depID := range node.Dependencies {
+		dep := nm[depID]
+		if dep != nil && dep.Type == NodeCompile {
+			objects = append(objects, collectObjects(*dep, nm)...)
+		}
+	}
+
+	return objects
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -65,12 +66,19 @@ func (g *GCC) Compile(opts CompileOptions) error {
 				Optimization: opts.Optimization,
 				CompileOnly:  true,
 				PIC:          opts.PIC,
+				DepFile:      strings.TrimSuffix(objName, filepath.Ext(objName)) + ".d",
 			}
 			if err := g.compileSingle(bin, compileOpts); err != nil {
 				return err
 			}
 		}
 		return nil
+	}
+
+	// Generate dep file for single source
+	if opts.CompileOnly && opts.DepFile == "" {
+		objBase := strings.TrimSuffix(opts.Output, filepath.Ext(opts.Output))
+		opts.DepFile = objBase + ".d"
 	}
 
 	return g.compileSingle(bin, opts)
@@ -102,6 +110,11 @@ func (g *GCC) compileSingle(bin string, opts CompileOptions) error {
 		args = append(args, "-O3")
 	}
 
+	// Header dependency tracking
+	if opts.CompileOnly && opts.DepFile != "" {
+		args = append(args, "-MMD", "-MF", opts.DepFile)
+	}
+
 	for _, dir := range opts.IncludeDirs {
 		args = append(args, "-I"+dir)
 	}
@@ -125,6 +138,9 @@ func (g *GCC) compileSingle(bin string, opts CompileOptions) error {
 }
 
 func (g *GCC) Link(opts LinkOptions) error {
+	// On Windows, don't add -l prefix for libraries
+	isWindows := runtime.GOOS == "windows"
+
 	args := []string{}
 	args = append(args, opts.Objects...)
 	args = append(args, "-o", opts.Output)
@@ -134,7 +150,11 @@ func (g *GCC) Link(opts LinkOptions) error {
 	}
 
 	for _, lib := range opts.Libraries {
-		args = append(args, "-l"+lib)
+		if isWindows {
+			args = append(args, lib)
+		} else {
+			args = append(args, "-l"+lib)
+		}
 	}
 
 	args = append(args, opts.Flags...)
@@ -149,6 +169,39 @@ func (g *GCC) Link(opts LinkOptions) error {
 
 	if err := runCommand(cmd); err != nil {
 		return fmt.Errorf("gcc linking failed: %w", err)
+	}
+
+	return nil
+}
+
+func (g *GCC) Archive(objects []string, output string) error {
+	// Create static library using ar
+	args := []string{"rcs", output}
+	args = append(args, objects...)
+
+	// Find ar binary
+	arPath := "ar"
+	if runtime.GOOS == "windows" {
+		// On Windows with MinGW, ar might be in the same dir as gcc
+		dir := filepath.Dir(g.path)
+		candidates := []string{
+			filepath.Join(dir, "ar.exe"),
+			filepath.Join(dir, "ar"),
+			"ar",
+		}
+		for _, c := range candidates {
+			if _, err := exec.LookPath(c); err == nil {
+				arPath = c
+				break
+			}
+		}
+	}
+
+	cmd := exec.Command(arPath, args...)
+	cmd.Stdout = nil
+
+	if err := runCommand(cmd); err != nil {
+		return fmt.Errorf("gcc archive failed: %w", err)
 	}
 
 	return nil

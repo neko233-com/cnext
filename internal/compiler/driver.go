@@ -17,6 +17,7 @@ type Compiler interface {
 	Version() string
 	Compile(opts CompileOptions) error
 	Link(opts LinkOptions) error
+	Archive(objects []string, output string) error
 }
 
 type CompileOptions struct {
@@ -28,8 +29,9 @@ type CompileOptions struct {
 	Defines      []string
 	Flags        []string
 	Optimization string
-	CompileOnly  bool // -c flag for compile-only (no linking)
-	PIC          bool // -fPIC for position-independent code
+	CompileOnly  bool   // -c flag for compile-only (no linking)
+	PIC          bool   // -fPIC for position-independent code
+	DepFile      string // -MF path for header dependency tracking
 }
 
 type LinkOptions struct {

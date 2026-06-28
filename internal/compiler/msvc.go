@@ -2,7 +2,9 @@ package compiler
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 )
@@ -97,6 +99,34 @@ func (m *MSVC) Link(opts LinkOptions) error {
 
 	if err := runCommand(cmd); err != nil {
 		return fmt.Errorf("msvc linking failed: %w", err)
+	}
+
+	return nil
+}
+
+func (m *MSVC) Archive(objects []string, output string) error {
+	if runtime.GOOS != "windows" {
+		return fmt.Errorf("msvc only available on Windows")
+	}
+
+	// Use lib.exe to create static library
+	args := []string{"/OUT:" + output}
+	args = append(args, objects...)
+
+	// Find lib.exe
+	libPath := "lib.exe"
+	if dir := filepath.Dir(m.path); dir != "" {
+		candidate := filepath.Join(dir, "lib.exe")
+		if _, err := os.Stat(candidate); err == nil {
+			libPath = candidate
+		}
+	}
+
+	cmd := exec.Command(libPath, args...)
+	cmd.Stdout = nil
+
+	if err := runCommand(cmd); err != nil {
+		return fmt.Errorf("msvc archive failed: %w", err)
 	}
 
 	return nil

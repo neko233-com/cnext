@@ -1,6 +1,7 @@
 package build
 
 import (
+	"runtime"
 	"testing"
 
 	"github.com/neko233-com/cnext/internal/config"
@@ -45,6 +46,11 @@ func TestGenerateBuildGraph(t *testing.T) {
 		t.Errorf("Expected 3 nodes, got %d", len(graph.Nodes))
 	}
 
+	expectedArchiveOutput := "mylib.a"
+	if runtime.GOOS == "windows" {
+		expectedArchiveOutput = "mylib.lib"
+	}
+
 	var hasLibNode, hasExeNode, hasLinkNode bool
 	for _, node := range graph.Nodes {
 		switch node.ID {
@@ -56,8 +62,11 @@ func TestGenerateBuildGraph(t *testing.T) {
 			if len(node.Sources) != 2 {
 				t.Errorf("lib:mylib sources len = %d, want 2", len(node.Sources))
 			}
-			if node.Output != "mylib.a" {
-				t.Errorf("lib:mylib output = %q, want %q", node.Output, "mylib.a")
+			if node.Output != "mylib.o" {
+				t.Errorf("lib:mylib output = %q, want %q", node.Output, "mylib.o")
+			}
+			if node.ArchiveOutput != expectedArchiveOutput {
+				t.Errorf("lib:mylib archiveOutput = %q, want %q", node.ArchiveOutput, expectedArchiveOutput)
 			}
 		case "exe:myapp":
 			hasExeNode = true
