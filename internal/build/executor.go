@@ -234,9 +234,21 @@ func (g *BuildGraph) executeCompileNode(comp compiler.Compiler, node *BuildNode,
 	if strings.HasPrefix(node.ID, "lib:") && node.ArchiveOutput != "" {
 		objects := collectObjects(*node, g.nodeMap())
 		if len(objects) > 0 {
-			fmt.Printf("  [archive] %s -> %s\n", node.ID, node.ArchiveOutput)
-			if err := comp.Archive(objects, node.ArchiveOutput); err != nil {
-				return fmt.Errorf("archiving of %s failed: %w", node.ID, err)
+			// Check if this is a shared library
+			isShared := strings.HasSuffix(node.ArchiveOutput, ".so") ||
+				strings.HasSuffix(node.ArchiveOutput, ".dylib") ||
+				strings.HasSuffix(node.ArchiveOutput, ".dll")
+
+			if isShared {
+				fmt.Printf("  [shared] %s -> %s\n", node.ID, node.ArchiveOutput)
+				if err := comp.SharedArchive(objects, node.ArchiveOutput, nil, nil); err != nil {
+					return fmt.Errorf("shared archive of %s failed: %w", node.ID, err)
+				}
+			} else {
+				fmt.Printf("  [archive] %s -> %s\n", node.ID, node.ArchiveOutput)
+				if err := comp.Archive(objects, node.ArchiveOutput); err != nil {
+					return fmt.Errorf("archiving of %s failed: %w", node.ID, err)
+				}
 			}
 			result.Archived++
 		}

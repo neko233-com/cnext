@@ -203,3 +203,31 @@ func (c *Clang) Archive(objects []string, output string) error {
 
 	return nil
 }
+
+func (c *Clang) SharedArchive(objects []string, output string, libDirs []string, libraries []string) error {
+	// Create shared library using clang -shared
+	args := []string{"-shared"}
+	args = append(args, objects...)
+	args = append(args, "-o", output)
+
+	for _, dir := range libDirs {
+		args = append(args, "-L"+dir)
+	}
+
+	for _, lib := range libraries {
+		if runtime.GOOS == "windows" {
+			args = append(args, lib)
+		} else {
+			args = append(args, "-l"+lib)
+		}
+	}
+
+	cmd := exec.Command(c.path, args...)
+	cmd.Stdout = nil
+
+	if err := runCommand(cmd); err != nil {
+		return fmt.Errorf("clang shared archive failed: %w", err)
+	}
+
+	return nil
+}

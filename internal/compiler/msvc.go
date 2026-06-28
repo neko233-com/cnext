@@ -131,3 +131,30 @@ func (m *MSVC) Archive(objects []string, output string) error {
 
 	return nil
 }
+
+func (m *MSVC) SharedArchive(objects []string, output string, libDirs []string, libraries []string) error {
+	if runtime.GOOS != "windows" {
+		return fmt.Errorf("msvc only available on Windows")
+	}
+
+	// Use link.exe to create DLL
+	args := []string{"/DLL", "/OUT:" + output}
+	args = append(args, objects...)
+
+	for _, dir := range libDirs {
+		args = append(args, "/LIBPATH:"+dir)
+	}
+
+	for _, lib := range libraries {
+		args = append(args, lib+".lib")
+	}
+
+	cmd := exec.Command(m.path, args...)
+	cmd.Stdout = nil
+
+	if err := runCommand(cmd); err != nil {
+		return fmt.Errorf("msvc shared archive failed: %w", err)
+	}
+
+	return nil
+}

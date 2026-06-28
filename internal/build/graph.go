@@ -81,12 +81,18 @@ func Generate(cfg *config.Config) (*BuildGraph, error) {
 		// Compile step produces .o files
 		objOutput := lib.Name + ".o"
 
-		// Archive step produces .a or .so
+		// Archive step produces .a or .so/.dylib/.dll
 		archiveOutput := lib.Name + ".a"
 		if lib.Type == "shared" {
-			archiveOutput = lib.Name + ".so"
-		}
-		if runtime.GOOS == "windows" {
+			switch runtime.GOOS {
+			case "darwin":
+				archiveOutput = lib.Name + ".dylib"
+			case "windows":
+				archiveOutput = lib.Name + ".dll"
+			default:
+				archiveOutput = lib.Name + ".so"
+			}
+		} else if runtime.GOOS == "windows" {
 			archiveOutput = lib.Name + ".lib"
 		}
 
@@ -100,7 +106,7 @@ func Generate(cfg *config.Config) (*BuildGraph, error) {
 			STD:          cfg.Build.STD,
 			Optimization: cfg.Build.Optimization,
 			IncludeDirs:  lib.IncludeDirs,
-			PIC:          cfg.Build.PIC,
+			PIC:          cfg.Build.PIC || lib.Type == "shared", // Force PIC for shared libs
 		})
 	}
 

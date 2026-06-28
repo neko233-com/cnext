@@ -18,6 +18,7 @@ type Compiler interface {
 	Compile(opts CompileOptions) error
 	Link(opts LinkOptions) error
 	Archive(objects []string, output string) error
+	SharedArchive(objects []string, output string, libDirs []string, libraries []string) error
 }
 
 type CompileOptions struct {

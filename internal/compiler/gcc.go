@@ -206,3 +206,31 @@ func (g *GCC) Archive(objects []string, output string) error {
 
 	return nil
 }
+
+func (g *GCC) SharedArchive(objects []string, output string, libDirs []string, libraries []string) error {
+	// Create shared library using gcc -shared
+	args := []string{"-shared"}
+	args = append(args, objects...)
+	args = append(args, "-o", output)
+
+	for _, dir := range libDirs {
+		args = append(args, "-L"+dir)
+	}
+
+	for _, lib := range libraries {
+		if runtime.GOOS == "windows" {
+			args = append(args, lib)
+		} else {
+			args = append(args, "-l"+lib)
+		}
+	}
+
+	cmd := exec.Command(g.path, args...)
+	cmd.Stdout = nil
+
+	if err := runCommand(cmd); err != nil {
+		return fmt.Errorf("gcc shared archive failed: %w", err)
+	}
+
+	return nil
+}
