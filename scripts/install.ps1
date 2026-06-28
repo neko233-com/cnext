@@ -85,6 +85,42 @@ public static extern IntPtr SendMessageTimeout(
     }
 }
 
+function Test-Compiler {
+    $hasGcc = $false
+    $hasClang = $false
+    $hasMsvc = $false
+
+    try { Get-Command g++ -ErrorAction Stop | Out-Null; $hasGcc = $true } catch {}
+    try { Get-Command clang++ -ErrorAction Stop | Out-Null; $hasClang = $true } catch {}
+    try { Get-Command cl -ErrorAction Stop | Out-Null; $hasMsvc = $true } catch {}
+
+    if ($hasGcc -or $hasClang -or $hasMsvc) {
+        return $true
+    }
+
+    Write-Host ""
+    Write-Host "⚠ No C/C++ compiler found!" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "cnext requires a compiler. Install one of:"
+    Write-Host ""
+    Write-Host "  Option 1: Visual Studio Build Tools"
+    Write-Host "    https://visualstudio.microsoft.com/visual-cpp-build-tools/"
+    Write-Host ""
+    Write-Host "  Option 2: LLVM/Clang"
+    Write-Host "    winget install LLVM.LLVM"
+    Write-Host ""
+    Write-Host "  Option 3: MinGW-w64 (GCC)"
+    Write-Host "    winget install MSYS2.MSYS2"
+    Write-Host "    Then: pacman -S mingw-w64-x86_64-gcc"
+    Write-Host ""
+    return $false
+}
+
+Write-Host "========================================="
+Write-Host "  cnext installer"
+Write-Host "========================================="
+Write-Host ""
+
 if ($Version -eq "latest" -or [string]::IsNullOrWhiteSpace($Version)) {
     $url = "https://github.com/$Repo/releases/latest/download/$Asset"
     $versionLabel = "latest"
@@ -96,11 +132,14 @@ if ($Version -eq "latest" -or [string]::IsNullOrWhiteSpace($Version)) {
 
 $dest = Join-Path $InstallDir "$BinaryName.exe"
 
-Write-Host "Installing ${BinaryName} $versionLabel for windows/amd64..."
-Write-Host "Downloading $url..."
+Write-Host "Detected: windows/amd64"
+Write-Host "Version:  $versionLabel"
+Write-Host ""
 
+Write-Host "Downloading $url..."
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 Invoke-WebRequest -Uri $url -OutFile $dest
+Write-Host "✓ Downloaded to $dest"
 
 $pathCandidates = @(
     (Join-Path $env:USERPROFILE ".local\bin"),
@@ -114,16 +153,16 @@ foreach ($candidate in $pathCandidates) {
     if (-not (Test-PathInUserPath $candidate)) { continue }
 
     $linkPath = Add-BinaryLink -Source $dest -TargetDir $candidate
-    Write-Host "Linked $linkPath -> $dest"
+    Write-Host "✓ Linked $linkPath -> $dest"
     $linked = $true
     break
 }
 
 if (-not $linked) {
     if (Add-ToUserPath $InstallDir) {
-        Write-Host "Added $InstallDir to the front of user PATH."
+        Write-Host "✓ Added $InstallDir to user PATH"
     } else {
-        Write-Host "$InstallDir is already in user PATH."
+        Write-Host "✓ $InstallDir is already in user PATH"
     }
 }
 
@@ -132,5 +171,28 @@ $env:Path = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" +
             [Environment]::GetEnvironmentVariable("Path", "User")
 
 Write-Host ""
-Write-Host "Installed to $dest"
-Write-Host "Restart your terminal, then run: cnext --help"
+Write-Host "========================================="
+Write-Host "  Verifying installation..."
+Write-Host "========================================="
+
+if (Get-Command $BinaryName -ErrorAction SilentlyContinue) {
+    Write-Host "✓ $BinaryName is in PATH"
+    & $BinaryName --help | Select-Object -First 5
+} else {
+    Write-Host ""
+    Write-Host "⚠ $BinaryName installed but not in current PATH."
+    Write-Host "Restart your terminal to use it."
+}
+
+Test-Compiler | Out-Null
+
+Write-Host ""
+Write-Host "========================================="
+Write-Host "  Quick Start"
+Write-Host "========================================="
+Write-Host ""
+Write-Host "  cnext init my-app    # Create new project"
+Write-Host "  cd my-app"
+Write-Host "  cnext build          # Build project"
+Write-Host "  cnext run            # Run executable"
+Write-Host ""

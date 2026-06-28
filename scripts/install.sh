@@ -4,7 +4,6 @@ set -e
 # cnext - macOS/Linux installer
 # Usage: curl -fsSL https://raw.githubusercontent.com/neko233-com/cnext/main/scripts/install.sh | bash
 # Or:    curl -fsSL .../install.sh | bash -s -- v1.0.0
-# Windows: use scripts/install.ps1 instead
 
 VERSION="${1:-latest}"
 BINARY_NAME="cnext"
@@ -31,6 +30,36 @@ normalize_version() {
     v="${v#v}"
     v="${v#V}"
     echo "$v"
+}
+
+check_compiler() {
+    local has_gcc=false
+    local has_clang=false
+
+    if command -v g++ &>/dev/null || command -v gcc &>/dev/null; then
+        has_gcc=true
+    fi
+    if command -v clang++ &>/dev/null || command -v clang &>/dev/null; then
+        has_clang=true
+    fi
+
+    if $has_gcc || $has_clang; then
+        return 0
+    fi
+
+    echo ""
+    echo "⚠ No C/C++ compiler found!"
+    echo ""
+    echo "cnext requires a compiler (gcc or clang). Install one:"
+    echo ""
+    echo "  Ubuntu/Debian:  sudo apt install gcc g++ clang"
+    echo "  CentOS/RHEL:    sudo yum install gcc gcc-c++ clang"
+    echo "  macOS:          xcode-select --install"
+    echo "  Arch:           sudo pacman -S gcc clang"
+    echo ""
+    echo "After installing, run: cnext --help"
+    echo ""
+    return 1
 }
 
 install_binary() {
@@ -61,7 +90,7 @@ install_binary() {
     chmod +x "${install_dir}/${target}"
     rm -rf "$TMPDIR"
 
-    echo "Installed to ${install_dir}/${target}"
+    echo "✓ Installed to ${install_dir}/${target}"
 }
 
 main() {
@@ -81,14 +110,45 @@ main() {
         VERSION="latest"
     fi
 
+    echo "========================================="
+    echo "  cnext installer"
+    echo "========================================="
+    echo ""
     echo "Detected: ${OS}/${ARCH}"
-    echo "Installing cnext (${VERSION})..."
+    echo "Version:  ${VERSION}"
+    echo ""
 
     install_binary "$OS" "$ARCH" "$VERSION"
 
     echo ""
-    echo "Installed successfully!"
-    echo "Run: cnext --help"
+    echo "========================================="
+    echo "  Verifying installation..."
+    echo "========================================="
+
+    if command -v ${BINARY_NAME} &>/dev/null; then
+        echo "✓ ${BINARY_NAME} is in PATH"
+        ${BINARY_NAME} --help | head -5
+    else
+        echo ""
+        echo "⚠ ${BINARY_NAME} installed but not in PATH."
+        echo "Add to your shell profile:"
+        echo ""
+        echo "  export PATH=\"/usr/local/bin:\$PATH\""
+        echo ""
+    fi
+
+    check_compiler || true
+
+    echo ""
+    echo "========================================="
+    echo "  Quick Start"
+    echo "========================================="
+    echo ""
+    echo "  cnext init my-app    # Create new project"
+    echo "  cd my-app"
+    echo "  cnext build          # Build project"
+    echo "  cnext run            # Run executable"
+    echo ""
 }
 
 main "$@"

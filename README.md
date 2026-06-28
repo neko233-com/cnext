@@ -1,8 +1,51 @@
 # cnext
 
-A next-generation build tool and package manager for C/C++ projects.
+[![CI](https://github.com/neko233-com/cnext/actions/workflows/ci.yaml/badge.svg)](https://github.com/neko233-com/cnext/actions/workflows/ci.yaml)
+[![Release](https://img.shields.io/github/v/release/neko233-com/cnext)](https://github.com/neko233-com/cnext/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Installation
+**一行命令装好 C/C++ 开发环境。** 自动检测/安装编译器，跨平台构建，增量编译，依赖管理。
+
+## 安装
+
+### 一键安装 (推荐)
+
+**macOS / Linux:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/neko233-com/cnext/main/scripts/install.sh | bash
+```
+
+**Windows (PowerShell):**
+
+```powershell
+irm https://raw.githubusercontent.com/neko233-com/cnext/main/scripts/install.ps1 | iex
+```
+
+**Windows (CMD):**
+
+```cmd
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/neko233-com/cnext/main/scripts/install.ps1 | iex"
+```
+
+### 指定版本安装
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/neko233-com/cnext/main/scripts/install.sh | bash -s -- v0.1.0
+```
+
+### 从源码编译
+
+```bash
+# 需要 Go 1.25+
+go install github.com/neko233-com/cnext/cmd/cnext@latest
+```
+
+### 预编译二进制
+
+从 [GitHub Releases](https://github.com/neko233-com/cnext/releases) 下载
+
+## 快速开始
 
 ### One-Click Install (Recommended)
 
